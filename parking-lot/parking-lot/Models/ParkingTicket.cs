@@ -1,32 +1,23 @@
-public class ParkingTicket{
-    private string tickerNumber;
-    private Vehicle vehicle;
-    private ParkingSpot parkingSpot;
-    private DateTime entryTime;
-    private DateTime exitTime;
-    public ParkingTicket(Vehicle vehicle, ParkingSpot parkingSpot){
-        this.tickerNumber = Guid.NewGuid().ToString();
-        this.vehicle = vehicle;
-        this.parkingSpot = parkingSpot;
-        this.entryTime = DateTime.Now;
-        this.exitTime = DateTime.MinValue; // Default value indicating the ticket is still active
+using System;
+
+public class ParkingTicket
+{
+    public string TicketNumber { get; private set; }
+    public Vehicle Vehicle { get; private set; }
+    public ParkingSpot ParkingSpot { get; private set; }
+    public DateTime ParkedAt { get; private set; }
+    public DateTime? ExitedAt { get; private set; }
+
+    public ParkingTicket(Vehicle vehicle, ParkingSpot parkingSpot)
+    {
+        TicketNumber = Guid.NewGuid().ToString();
+        Vehicle = vehicle;
+        ParkingSpot = parkingSpot;
+        ParkedAt = DateTime.Now;
     }
-    public string TickerNumber {
-        get { return tickerNumber; }
-    }
-    public Vehicle Vehicle {
-        get { return vehicle; }
-    }
-    public ParkingSpot ParkingSpot {
-        get { return parkingSpot; }
-    }
-    public DateTime EntryTime {
-        get { return entryTime; }       
-    }
-    public DateTime ExitTime {
-        get { return exitTime; }
-    }
-    public void MarkAsExited() {
-        this.exitTime = DateTime.Now; // Set the exit time to the current time
+
+    public void MarkAsExited()
+    {
+        ExitedAt = DateTime.Now;
     }
 }

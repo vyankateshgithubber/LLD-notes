@@ -42,7 +42,7 @@ public class ParkingSpot{
             }
         }
     }
-    public CanFitVehicle CanFitVehicle(Vehicle vehicle) {
+    public bool CanFitVehicle(Vehicle vehicle) {
         return isAvailable && vehicle.Size == spotSize;
     }
 }
