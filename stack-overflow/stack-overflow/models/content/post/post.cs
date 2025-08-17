@@ -3,6 +3,7 @@ using StackOverflow.Enums;
 using StackOverflow.Models;
 using StackOverflow.Models.Content;
 using StackOverflow.Observers;
+using StackOverflow.Observers.Events;
 
 public abstract class Post : Content
 {
@@ -22,7 +23,7 @@ public abstract class Post : Content
         observers.Add(observer);
     }
 
-    protected void NotifyObservers(Event eventObj)
+    public void NotifyObservers(Event eventObj)
     {
         foreach (var observer in observers)
         {
@@ -61,15 +62,15 @@ public abstract class Post : Content
             voters[userId] = voteType;
             voteCount += scoreChange;
             EventType eventType;
-            if (this is Question)
+            if (this.GetType() == typeof(Question))
             {
-                eventType = (voteType == VO  ) ? EventType.QuestionUpvoted : EventType.QuestionDownvoted;
+                eventType = (voteType == VoteType.DOWNVOTE) ? EventType.UPVOTE_QUESTION : EventType.DOWNVOTE_QUESTION;
             }
             else
             {
-                eventType = (voteType == VoteType.Upvote) ? EventType.AnswerUpvoted : EventType.AnswerDownvoted;    
+                eventType = (voteType == VoteType.UPVOTE) ? EventType.UPVOTE_ANSWER : EventType.DOWNVOTE_QUESTION;    
             }
-            NotifyObservers(new Event(eventType, this, user));
+            NotifyObservers(new Event(eventType, user,this));
         }
     }
 

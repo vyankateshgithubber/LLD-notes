@@ -1,6 +1,9 @@
-using StackOverflow.Observers;
 
-interface IPostObserver
+using StackOverflow.Observers.Events;
+namespace StackOverflow.Observers
 {
-    void OnPostEvent(Event eventObj);
+    public interface IPostObserver
+    {
+        public void OnPostEvent(Event eventObj);
+    }
 }

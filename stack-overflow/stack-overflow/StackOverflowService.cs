@@ -1,114 +1,89 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using StackOverflow.Models;
 using StackOverflow.Models.Content;
 using StackOverflow.Enums;
 using StackOverflow.Strategy;
 using StackOverflow.Observers;
+using System.Collections.Concurrent;
 
 namespace StackOverflow
 {
     public class StackOverflowService
     {
-        private readonly List<User> users;
-        private readonly List<Question> questions;
-        private readonly List<Answer> answers;
-        private int nextUserId = 1;
-        private int nextContentId = 1;
-        private readonly ReputationManager reputationManager;
-
-        public StackOverflowService()
-        {
-            users = new List<User>();
-            questions = new List<Question>();
-            answers = new List<Answer>();
-            reputationManager = new ReputationManager();
-        }
+        private readonly ConcurrentDictionary<string, User> users = new ConcurrentDictionary<string, User>();
+        private readonly ConcurrentDictionary<string, Question> questions = new ConcurrentDictionary<string, Question>();
+        private readonly ConcurrentDictionary<string, Answer> answers = new ConcurrentDictionary<string, Answer>();
+        private readonly IPostObserver reputationManager = new ReputationManager();
 
         public User CreateUser(string name)
         {
-            var user = new User(nextUserId++, name);
-            users.Add(user);
+            User user = new User( name);
+            users.TryAdd(user.GetId(), user);
             return user;
         }
 
-        public Question PostQuestion(int userId, string title, string body, HashSet<Tag> tags)
+        public Question PostQuestion(string userId, string title, string body, HashSet<Tag> tags)
         {
-            var user = GetUserById(userId);
-            var question = new Question(nextContentId++, title, body, user, tags);
-            questions.Add(question);
-            reputationManager.NotifyEvent(new Event(EventType.QUESTION_POSTED, user));
+            User author = users[userId];
+            Question question = new Question(title, body, author, tags);
+            question.AddObserver(reputationManager);
+            questions.TryAdd(question.GetId(), question);
             return question;
         }
 
-        public Answer PostAnswer(int userId, int questionId, string body)
+        public Answer PostAnswer(string userId, string questionId, string body)
         {
-            var user = GetUserById(userId);
-            var question = GetQuestionById(questionId);
-            var answer = new Answer(nextContentId++, body, user);
-            answers.Add(answer);
-            reputationManager.NotifyEvent(new Event(EventType.ANSWER_POSTED, user));
+            User author = users[userId];
+            Question question = questions[questionId];
+            Answer answer = new Answer(body, author);
+            answer.AddObserver(reputationManager);
+            question.AddAnswer(answer);
+            answers.TryAdd(answer.GetId(), answer);
             return answer;
         }
 
-        public void VoteOnPost(int voterId, int contentId, VoteType voteType)
+        public void VoteOnPost(string userId, string postId, VoteType voteType)
         {
-            var content = GetContentById(contentId);
-            if (content != null)
-            {
-                var voter = GetUserById(voterId);
-                var author = content.GetAuthor();
-                reputationManager.NotifyEvent(new Event(voteType == VoteType.UPVOTE ? 
-                    EventType.UPVOTE_RECEIVED : EventType.DOWNVOTE_RECEIVED, author));
-            }
+            User user = users[userId];
+            Post post = FindPostById(postId);
+            post.Vote(user, voteType);
         }
 
-        public void AcceptAnswer(int questionId, int answerId)
+        public void AcceptAnswer(string questionId, string answerId)
         {
-            var question = GetQuestionById(questionId);
-            var answer = GetAnswerById(answerId);
-            question.SetAcceptedAnswer(answer);
-            answer.MarkAsAccepted();
-            reputationManager.NotifyEvent(new Event(EventType.ANSWER_ACCEPTED, answer.GetAuthor()));
+            Question question = questions[questionId];
+            Answer answer = answers[answerId];
+            question.AcceptAnswer(answer);
         }
 
         public List<Question> SearchQuestions(List<ISearchStrategy> strategies)
         {
-            if (strategies == null || !strategies.Any())
-                return questions;
+            List<Question> results = questions.Values.ToList();
 
-            var result = questions.AsEnumerable();
             foreach (var strategy in strategies)
             {
-                result = strategy.Filter(result);
+                results = strategy.Filter(results).ToList();
             }
-            return result.ToList();
+
+            return results;
         }
 
-        private User GetUserById(int id)
+        public User GetUser(string userId)
         {
-            return users.FirstOrDefault(u => u.GetId() == id) 
-                ?? throw new ArgumentException($"User with ID {id} not found");
+            return users[userId];
         }
 
-        private Question GetQuestionById(int id)
+        private Post FindPostById(string postId)
         {
-            return questions.FirstOrDefault(q => q.GetId() == id)
-                ?? throw new ArgumentException($"Question with ID {id} not found");
-        }
+            if (questions.TryGetValue(postId, out Question? question))
+            {
+                return question;
+            }
+            else if (answers.TryGetValue(postId, out Answer? answer))
+            {
+                return answer;
+            }
 
-        private Answer GetAnswerById(string id)
-        {
-            return answers.FirstOrDefault(a => a.GetId() == id)
-                ?? throw new ArgumentException($"Answer with ID {id} not found");
-        }
-
-        private Content GetContentById(string id)
-        {
-            return questions.FirstOrDefault(q => q.GetId() == id) as Content 
-                ?? answers.FirstOrDefault(a => a.GetId() == id) as Content
-                ?? throw new ArgumentException($"Content with ID {id} not found");
+            throw new KeyNotFoundException("Post not found");
         }
     }
 }
