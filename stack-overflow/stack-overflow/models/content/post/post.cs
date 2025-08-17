@@ -23,7 +23,7 @@ public abstract class Post : Content
         observers.Add(observer);
     }
 
-    public void NotifyObservers(Event eventObj)
+    protected void NotifyObservers(Event eventObj)
     {
         foreach (var observer in observers)
         {
